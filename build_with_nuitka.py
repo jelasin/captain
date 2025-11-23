@@ -43,6 +43,17 @@ def get_os_specific_flags():
     
     return flags
 
+def prepare_compiler_environment():
+    """Ensure platform specific compiler environment settings are applied."""
+    env = os.environ.copy()
+    if platform.system() == "Windows":
+        # Increase MSVC compiler heap to avoid C1002 (out of heap space) errors
+        zm_flag = "/Zm2000"
+        existing = env.get("CL", "")
+        if zm_flag not in existing:
+            env["CL"] = f"{zm_flag} {existing}".strip()
+            print(f"[*] Added '{zm_flag}' to CL environment to expand MSVC heap")
+    return env
 def build():
     """执行 Nuitka 构建"""
     print("[+] Starting Nuitka build...")
@@ -128,8 +139,10 @@ def build():
 
     # 打印并执行命令
     print(f"[>] Command: {' '.join(cmd)}")
+    env = prepare_compiler_environment()
+
     try:
-        subprocess.check_call(cmd)
+        subprocess.check_call(cmd, env=env)
         print("[SUCCESS] Build finished successfully!")
     except subprocess.CalledProcessError as e:
         print("[ERROR] Build failed!")

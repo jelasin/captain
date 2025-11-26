@@ -41,7 +41,7 @@ system_prompt = ""
 # LLMToolSelector_base_url = ""
 
 # # Summarization model (disabled)
-# # 现代 LLM 可以自己管理上下文，自动摘要会干扰正常流程 (自动摘要会干扰正常流程)
+# # 现代 LLM 可以自己管理上下文，自动摘要会干扰正常流程
 # Summarization_model_name = ""
 # Summarization_api_key = ""
 # Summarization_base_url = ""
@@ -92,9 +92,10 @@ tavily_api_key = ""
 
 * --config 是配置文件路径，默认是 config.toml。
 * --workspace 是工作空间路径。
+* --output 是输出文件路径。
 
 ```bash
-python main.py --config config.toml --workspace workspace
+python main.py --config config.toml --workspace workspace --output output.md
 ```
 
 ```text

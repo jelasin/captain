@@ -26,7 +26,6 @@ from collections import OrderedDict
 from pathlib import Path
 from utils.sys_shell import sys_shell
 
-
 async def main():
     """主程序入口"""
     
@@ -396,6 +395,34 @@ async def main():
                                 
                         except json.JSONDecodeError:
                             console.print(Panel(f"Error parsing tool result: {content}", style="red"))
+
+                    elif response_type == "sub_agent":
+                        # 从其他状态切换过来时，停止之前的 Live
+                        if current_state not in ("tool_call", "tool_result"):
+                            if current_live:
+                                if thinking_buffer:
+                                    save_content(args.output, "think", "".join(thinking_buffer))
+                                if answer_buffer:
+                                    save_content(args.output, "answer", "".join(answer_buffer))
+                                thinking_buffer = []
+                                answer_buffer = []
+                                stop_current_live()
+                        
+                        stop_tools_live()
+
+                        try:
+                            md_content = Markdown(content)
+                        except Exception:
+                            md_content = content
+                        
+                        console.print(Panel(
+                            md_content,
+                            title="[bold magenta]🤖 Sub Agent Output[/bold magenta]",
+                            border_style="magenta",
+                            box=box.ROUNDED
+                        ))
+                        # 保存子代理输出
+                        save_content(args.output, "sub_agent", content)
 
                     elif response_type == "error":
                         # 停止工具 Live

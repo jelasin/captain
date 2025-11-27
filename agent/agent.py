@@ -6,6 +6,20 @@ from typing import Optional, Any
 from utils.utils import (
     get_mcp_servers, cprint, Colors,
 )
+from utils.utils import get_workspace_path
+from tools.utils import ErrorHandlingMiddleware
+from langchain.agents.middleware import (
+    TodoListMiddleware,
+)
+from deepagents.middleware import (
+    FilesystemMiddleware,
+)
+from deepagents.backends import (
+    FilesystemBackend,
+    CompositeBackend,
+    StoreBackend,
+)
+from pathlib import Path
 
 async def build_sub_agent(
     model_name: str,
@@ -56,8 +70,23 @@ async def build_sub_agent(
             model=model,
             tools=mcp_tools_list if mcp_tools_list else None,
             system_prompt=system_prompt,
+            middleware=[
+                TodoListMiddleware(),
+                FilesystemMiddleware(
+                    backend=lambda rt: CompositeBackend(
+                        default=FilesystemBackend(
+                                root_dir=Path(get_workspace_path()).resolve(), 
+                                virtual_mode=True
+                        ),
+                        routes={
+                            "/memories/": StoreBackend(rt),
+                        }
+                    ),
+                ),
+                ErrorHandlingMiddleware(),
+            ]
         )
-        
+
         return agent
     
     except Exception as e:

@@ -56,6 +56,9 @@ def save_content(file_path: str, content_type: str, content: Union[str, Dict[str
     elif content_type == "answer":
         markdown_content = f"### 🤖 Answer ({timestamp})\n\n{content}"
         
+    elif content_type == "sub_agent":
+        markdown_content = f"### 🤖 Sub Agent Output ({timestamp})\n\n{content}"
+        
     else:
         # 默认处理
         if isinstance(content, (dict, list)):

@@ -12,6 +12,7 @@ from utils.utils import (
     get_database_path, get_local_file_store_path,
     get_major_config, get_model_config
 )
+from tools.utils import ErrorHandlingMiddleware
 
 from langchain.agents.middleware import (
     TodoListMiddleware,
@@ -25,7 +26,6 @@ from deepagents.middleware import (
 
 from deepagents.backends import (
     CompositeBackend,
-    StateBackend,
     StoreBackend,
     FilesystemBackend
 )
@@ -78,12 +78,33 @@ async def build_agent(
     sub_agent_model_config = json.loads(model_config.get("sub_agent_model_config", "{}"))
     for sub_agent_name in model_config.get("sub_agent", []):
         sub_agent_config = sub_agent_model_config[sub_agent_name]
+        try:
+            model_name = sub_agent_config["model_name"]
+            base_url = sub_agent_config["base_url"]
+            api_key = sub_agent_config["api_key"]
+            system_prompt = sub_agent_config["system_prompt"]
+            try:
+                mcp_tools = sub_agent_config["mcp_tools"]
+            except Exception as e:
+                mcp_tools = []
+            try:
+                inside_tools = sub_agent_config["inside_tools"]
+            except Exception as e:
+                inside_tools = []
+        except Exception as e:
+            cprint(
+                f"[build_agent] Sub agent '{sub_agent_name}' config error: {e}", 
+                Colors.FAIL
+            )
+            continue
+
         agent = await build_sub_agent(
-            model_name=sub_agent_config["model_name"],
-            base_url=sub_agent_config["base_url"],
-            api_key=sub_agent_config["api_key"],
-            system_prompt=sub_agent_config["system_prompt"],
-            mcp_tools=sub_agent_config["tool_names"],
+            model_name=model_name,
+            base_url=base_url,
+            api_key=api_key,
+            system_prompt=system_prompt,
+            mcp_tools=mcp_tools,
+            inside_tools=inside_tools,
         )
         if agent is not None:
             sub_agent.append(
@@ -128,7 +149,6 @@ async def build_agent(
                                 virtual_mode=True
                         ),
                         routes={
-                            "/temp/": StateBackend(rt),
                             "/memories/": StoreBackend(rt),
                         }
                     ),
@@ -138,6 +158,7 @@ async def build_agent(
                     default_tools=[],
                     subagents=sub_agent,
                 ),
+                ErrorHandlingMiddleware(),
             ]
         )
 
@@ -159,72 +180,85 @@ async def process_agent(agent: Any, message: str):
             stream_mode=["updates", "messages"],
             config=get_major_config()
         ):
-            try:                
+            try:
+                # ============ messages 模式：流式 token ============
                 if stream_mode == "messages":
                     token, metadata = chunk
-                                        
-                    if metadata is None:
+                    
+                    if metadata is None or token is None:
                         continue
                     
                     node_name = metadata.get("langgraph_node", "")
                     
                     # 检查 token 是否有 content_blocks
-                    if not hasattr(token, 'content_blocks'):
+                    if not hasattr(token, 'content_blocks') or not token.content_blocks:
                         continue
                     
                     for block in token.content_blocks:
-                        if block["type"] == "text" and node_name == "model":
+                        # 模型的文本输出
+                        if block.get("type") == "text" and node_name == "model":
                             yield {
-                                "type": "model_answer", 
-                                "content": block['text'],
+                                "type": "model_answer",
+                                "content": block.get('text', ''),
                             }
-                        elif block["type"] == "reasoning":
+                        # 模型的思考过程
+                        elif block.get("type") == "reasoning":
                             yield {
-                                "type": "model_thinking", 
-                                "content": block['reasoning'],
+                                "type": "model_thinking",
+                                "content": block.get('reasoning', ''),
                             }
                 
+                # ============ updates 模式：状态更新 ============
                 elif stream_mode == "updates":
                     if chunk is None:
                         continue
                     
-                    # 从 updates 获取完整的工具调用
-                    for node_name, data in chunk.items():
-                        if data is None:
+                    # chunk 是 dict: {node_name: {state_updates}}
+                    for node_name, node_data in chunk.items():
+                        if node_data is None:
                             continue
                         
-                        # 安全获取 messages
-                        if not hasattr(data, 'get'):
-                            continue
+                        # 获取 messages 列表
+                        messages_list = node_data.get("messages", [])
                         
-                        messages = data.get("messages", [])
-                        for msg in messages:
-                            # 完整的工具调用
+                        for msg in messages_list:
+                            # ---- 处理工具调用 ----
                             if hasattr(msg, 'tool_calls') and msg.tool_calls:
                                 for tc in msg.tool_calls:
                                     yield {
                                         "type": "tool_call",
-                                        "name": tc['name'],
-                                        "args": tc['args'],  # 完整参数
-                                        "id": tc['id']
+                                        "name": tc.get('name') or tc['name'],  # 兼容不同格式
+                                        "args": tc.get('args', {}),
+                                        "id": tc.get('id')
                                     }
                             
+                            # ---- 处理工具结果 ----
                             if msg.__class__.__name__ == "ToolMessage":
                                 yield {
-                                    "type": "tool_result", 
-                                    "content": msg.content, 
+                                    "type": "tool_result",
+                                    "content": msg.content,
                                     "id": msg.tool_call_id,
                                 }
+                            
+                            if msg.__class__.__name__ == "ToolMessage":
+                                tool_name = getattr(msg, 'name', '')
+                                if tool_name == "task":  # SubAgentMiddleware 使用 'task' 作为工具名
+                                    yield {
+                                        "type": "sub_agent",
+                                        "content": msg.content,
+                                    }
+ 
             except Exception as e:
                 import traceback
                 yield {
-                    "type": "error", 
+                    "type": "error",
                     "content": f'[process_agent] Inner exception: {e}\n[process_agent] Traceback:\n{traceback.format_exc()}',
                 }
+    
     except Exception as e:
         import traceback
         yield {
-            "type": "error", 
+            "type": "error",
             "content": f'[process_agent] Error: {e}\n[process_agent] Traceback: {traceback.format_exc()}',
         }
 
@@ -304,6 +338,11 @@ async def ChatStream(
                         "content": message["content"],
                         "id": message["id"]
                     }, ensure_ascii=False)
+                }
+            elif message["type"] == "sub_agent":
+                yield {
+                    "type": "sub_agent",
+                    "content": message["content"]
                 }
             elif message["type"] == "error":
                 yield {

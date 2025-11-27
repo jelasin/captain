@@ -1,7 +1,10 @@
 name: Build Captain CMD Tools (Nuitka)
 
 on:
-  workflow_dispatch:  # 仅手动触发
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -154,7 +157,7 @@ jobs:
       run: ls -R artifacts/
 
     - name: Create GitHub Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         files: |
           artifacts/captain-cmd-windows-x64/*.zip
@@ -163,6 +166,3 @@ jobs:
         draft: false
         prerelease: false
         generate_release_notes: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-

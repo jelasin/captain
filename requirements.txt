@@ -1,20 +1,20 @@
 # python version: 3.13.2
-langchain==1.0.8
-langgraph==1.0.3
-deepagents==0.2.7
+langchain==1.1.0
+langgraph==1.0.4
+deepagents==0.2.8
 
 langchain-community==0.4.1
 langchain-deepseek==1.0.1
-langchain-openai==1.0.3
+langchain-openai==1.1.0
 langchain-ollama==1.0.0
-langchain-anthropic==1.1.0
-langchain-groq==1.0.1
-langchain-google-genai==3.1.0
-langchain-mistralai==1.0.1
-langchain-huggingface==1.0.1
-langchain-xai==1.0.0
+langchain-anthropic==1.2.0
+langchain-groq==1.1.0
+langchain-google-genai==3.2.0
+langchain-mistralai==1.1.0
+langchain-huggingface==1.1.0
+langchain-xai==1.1.0
 
-langchain-mcp-adapters==0.1.13
+langchain-mcp-adapters==0.1.14
 mcp==1.22.0
 mcp[cli]==1.22.0
 tavily-python==0.7.13
@@ -24,5 +24,5 @@ aiosqlite==0.21.0
 rich==14.2.0
 prompt_toolkit==3.0.52
 
-Nuitka==2.8.6
-pyinstaller==6.16.0
+Nuitka==2.8.8
+pyinstaller==6.17.0

@@ -312,7 +312,6 @@ async def main():
                     api_key=major_agent_config["api_key"],
                     system_prompt=major_agent_config.get("system_prompt", ""),
                     human_message=query_msg,
-                    workspace_path=args.workspace
                 ):
                     # 跳过 None 响应
                     if response is None:

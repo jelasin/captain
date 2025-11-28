@@ -11,7 +11,8 @@ from utils.utils import (
     cprint, Colors,
     get_database_path, get_local_file_store_path,
     get_major_config, get_model_config,
-    get_major_agent_config, get_sub_agents_config
+    get_major_agent_config, get_sub_agents_config,
+    get_workspace_path
 )
 from tools.utils import ErrorHandlingMiddleware
 
@@ -65,7 +66,6 @@ async def build_agent(
     base_url: str,
     api_key: str,
     system_prompt: str,
-    workspace_path: str
 ) -> Optional[Any]:
     """构建 deep agent"""
     
@@ -135,15 +135,10 @@ async def build_agent(
             middleware=[
                 TodoListMiddleware(),
                 FilesystemMiddleware(
-                    backend=lambda rt: CompositeBackend(
-                        default=FilesystemBackend(
-                                root_dir=Path(workspace_path).resolve(), 
-                                virtual_mode=True
-                        ),
-                        routes={
-                            "/memories/": StoreBackend(rt),
-                        }
-                    ),
+                    backend=FilesystemBackend(
+                        root_dir=Path(get_workspace_path()).resolve(), 
+                        virtual_mode=True
+                    )
                 ),
                 SubAgentMiddleware(
                     default_model=model,
@@ -260,7 +255,6 @@ async def ChatStream(
     api_key: str,
     system_prompt: str = "you are a helpful assistant", 
     human_message: str = "", 
-    workspace_path: str = ".",
 ):
     """chat stream"""
     
@@ -291,8 +285,7 @@ async def ChatStream(
                 model_name, 
                 base_url, 
                 api_key, 
-                system_prompt, 
-                workspace_path
+                system_prompt          
             )
         
         if not agent:

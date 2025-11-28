@@ -577,7 +577,7 @@ Type 'exit' or 'quit' to exit
 
 ### 3. 支持的命令
 
-shell 命令：用于执行shell命令，例如：`shell ls` 或 `shell pwd`。
+shell 命令：用于执行系统shell命令，首次执行时会缓存系统命令，后续执行时会自动补全。
 
 ```bash
 > shell ls

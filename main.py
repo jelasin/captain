@@ -21,9 +21,10 @@ from rich.live import Live
 from rich.table import Table
 from rich.text import Text
 from rich import box
+from rich.status import Status
 from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.styles import Style
-from utils.shell_prompt import CaptainShell
+from utils.shell_prompt import CaptainShell, get_cached_system_commands
 from collections import OrderedDict
 from pathlib import Path
 from utils.sys_shell import parse_shell_command, execute_shell_command
@@ -58,24 +59,36 @@ async def main():
     # 创建 Rich Console
     console = Console()
 
+    # 初始化加载
+    with Status("[bold cyan]Initializing Captain...", console=console, spinner="dots") as status:
+        # 预加载系统命令缓存
+        status.update("[bold cyan]Loading system commands...")
+        get_cached_system_commands()
+        
+        # 初始化配置
+        status.update("[bold cyan]Loading configuration...")
+        set_toml_path(args.config)
+        config = get_model_config()
+        
+        if config == "Error: toml_path is None":
+            console.print(f"[bold red]❌ Failed to load model config: {config}[/bold red]")
+            sys.exit(1)
+        
+        # 获取 major agent 配置
+        major_agent_config = get_major_agent_config()
+        if major_agent_config is None:
+            console.print("[bold red]❌ Failed to load major agent config[/bold red]")
+            sys.exit(1)
+        
+        # 初始化数据库路径
+        status.update("[bold cyan]Setting up workspace...")
+        set_database_path(args.workspace)
+        
+        # 创建 Captain Shell
+        status.update("[bold cyan]Preparing shell...")
+        
     # 创建 Captain Shell (带历史记录和补全)
     shell = CaptainShell()
-
-    # 初始化配置
-    set_toml_path(args.config)
-    config = get_model_config()
-    
-    if config == "Error: toml_path is None":
-        console.print(f"[bold red]❌ Failed to load model config: {config}[/bold red]")
-        sys.exit(1)
-    
-    # 获取 major agent 配置
-    major_agent_config = get_major_agent_config()
-    if major_agent_config is None:
-        console.print("[bold red]❌ Failed to load major agent config[/bold red]")
-        sys.exit(1)
-    
-    set_database_path(args.workspace)
 
     # 显示欢迎信息
     console.print("\n[bold cyan]🚀 Welcome to Captain Cmd Tools[/bold cyan]")
